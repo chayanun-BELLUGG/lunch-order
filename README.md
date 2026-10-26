@@ -1,0 +1,144 @@
+# lunch-order[index-6.html](https://github.com/user-attachments/files/33946840/index-6.html)
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สั่งอาหารกลางวัน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --green:#06C755; --bg:#f5f6f7; --card:#fff; --text:#1f2328; --muted:#6b7280; --line:#e5e7eb; --red:#d93025; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Sarabun',sans-serif; background:var(--bg); color:var(--text); font-size:16px; }
+  main { max-width:480px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border-radius:14px; padding:16px; margin-bottom:12px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .muted { color:var(--muted); font-size:14px; margin:0; }
+  .pill { display:inline-block; font-size:13px; padding:3px 10px; border-radius:20px; margin-top:8px; }
+  .pill.open { background:#e6f7ee; color:#0a7a3a; }
+  .pill.closed { background:#fdecea; color:var(--red); }
+  .menu-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+  .menu-row:last-child { border:0; }
+  .day { margin-bottom:14px; }
+  .day label { display:block; font-weight:600; margin-bottom:6px; }
+  select { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  select:disabled { background:#f3f4f6; color:var(--muted); }
+  select.invalid { border-color:var(--red); }
+  button { width:100%; font:inherit; font-weight:600; padding:13px; border:0; border-radius:12px; background:var(--green); color:#fff; }
+  button:disabled { opacity:.6; }
+  .err { color:var(--red); font-size:14px; min-height:20px; margin:4px 0 8px; }
+  .ok { background:#e6f7ee; color:#0a7a3a; border-radius:12px; padding:12px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<main id="app"><p class="muted">กำลังโหลด…</p></main>
+
+<script>
+  /* ===== แก้ 2 บรรทัดนี้ ===== */
+  const LIFF_ID = '2012207487-gL9FFWfF';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbw_dNHnWgGjck9nMOgyNOaqyiXAof9VsMjdc11A4D6u1W1_-RscKdaWyrV-skVB_a4r/exec';
+
+  const app = document.getElementById('app');
+  let idToken = '';
+
+  function el(tag, attrs, ...children) {
+    const e = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => {
+      if (k === 'class') e.className = v; else if (k in e) e[k] = v; else e.setAttribute(k, v);
+    });
+    children.flat().forEach(c => e.append(c instanceof Node ? c : document.createTextNode(c)));
+    return e;
+  }
+
+  async function api(body) {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ idToken }, body)),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+    return j;
+  }
+
+  function showError(msg) {
+    app.replaceChildren(el('div', { class: 'card' }, el('p', { class: 'err' }, msg)));
+  }
+
+  function render(s) {
+    const head = el('div', { class: 'card' },
+      el('h1', {}, 'เมนูสัปดาห์ ' + s.weekLabel),
+      el('p', { class: 'muted' }, 'สวัสดี ' + s.name),
+      el('span', { class: 'pill ' + (s.open ? 'open' : 'closed') },
+        s.open ? 'เปิดรับถึง ' + s.closeAt : 'ปิดรับแล้ว แก้ไขไม่ได้'));
+
+    const parts = [head];
+    if (s.saved) parts.push(el('div', { class: 'ok' }, 'บันทึกเรียบร้อย แก้ไขได้จนถึง ' + s.closeAt));
+
+    if (!s.menu.length) {
+      parts.push(el('div', { class: 'card' }, el('p', { class: 'muted' },
+        'ยังไม่มีเมนูของสัปดาห์นี้ ระบบจะประกาศเมนูวันศุกร์ 14:00 น.')));
+      app.replaceChildren(...parts);
+      return;
+    }
+
+    parts.push(el('div', { class: 'card' },
+      s.menu.map(m => el('div', { class: 'menu-row' }, el('span', {}, m.name), el('span', {}, m.price + ' ฿')))));
+
+    const selects = s.days.map((d, i) => {
+      const current = s.mine ? s.mine[i] : '';
+      const sel = el('select', { disabled: !s.open || d.holiday });
+      if (d.holiday) {
+        sel.append(el('option', { value: s.holidayLabel }, 'วันหยุด'));
+      } else {
+        sel.append(el('option', { value: '' }, '— เลือกเมนู —'));
+        s.menu.forEach(m => sel.append(el('option', { value: m.name }, m.name + ' — ' + m.price + ' ฿')));
+        sel.append(el('option', { value: s.noOrder }, s.noOrder + 'วันนี้'));
+        sel.value = current || '';
+      }
+      sel.addEventListener('change', () => { sel.classList.remove('invalid'); err.textContent = ''; });
+      return { d, sel };
+    });
+
+    const err = el('p', { class: 'err' });
+    const form = el('div', { class: 'card' },
+      selects.map(({ d, sel }) => el('div', { class: 'day' }, el('label', {}, d.label), sel)));
+
+    if (s.open) {
+      const btn = el('button', {}, s.mine ? 'บันทึกการแก้ไข' : 'ส่งรายการ');
+      btn.addEventListener('click', async () => {
+        const missing = selects.filter(({ d, sel }) => !d.holiday && !sel.value);
+        missing.forEach(({ sel }) => sel.classList.add('invalid'));
+        if (missing.length) { err.textContent = 'กรุณาเลือกให้ครบทุกวัน (ถ้าไม่ทานเลือก "ไม่สั่งวันนี้")'; return; }
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+        try {
+          const res = await api({ action: 'save', choices: selects.map(({ sel }) => sel.value) });
+          render(res);
+          window.scrollTo(0, 0);
+        } catch (e) {
+          err.textContent = e.message;
+          btn.disabled = false; btn.textContent = 'ลองอีกครั้ง';
+        }
+      });
+      form.append(err, btn);
+    } else if (!s.mine) {
+      form.prepend(el('p', { class: 'muted' }, 'คุณไม่ได้สั่งอาหารสัปดาห์นี้'));
+    }
+    parts.push(form);
+    app.replaceChildren(...parts);
+  }
+
+  (async () => {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+      idToken = liff.getIDToken();
+      render(await api({ action: 'load' }));
+    } catch (e) {
+      showError(e.message || 'โหลดไม่สำเร็จ กรุณาปิดแล้วเปิดใหม่');
+    }
+  })();
+</script>
+</body>
+</html>
